@@ -46,7 +46,7 @@ classdef CsEstimator
             [ids, ~, idIdx] = unique(id);
             N_units = length(ids);
 
-            [times, ~, timeIdx] = unique(time);
+            [times, ~, timeIdx] = unique(time); %#ok<ASGLU>
             T_periods = length(times);
             timeMap = containers.Map(num2cell(times), num2cell(1:T_periods));
 
@@ -79,7 +79,6 @@ classdef CsEstimator
             % 2. Compute ATT(g,t)
             % Loop over groups g and times t
 
-            ATT_gt = [];
             Res_gt = struct('g', [], 't', [], 'att', [], 'se', [], 'N', []);
 
             count = 0;
@@ -103,11 +102,11 @@ classdef CsEstimator
 
             for g_idx = 1:length(g_list)
                 g = g_list(g_idx);
-                g_time_idx = timeMap(g);
+                g_time_idx = timeMap(g); %#ok<NASGU>
 
                 % Determine Control Group units
                 if obj.ControlGroup == "NeverTreated"
-                    control_units = (isinf(G));
+                    control_units = (isinf(G)); %#ok<NASGU>
                 else % NotYetTreated
                     % Units not treated by time t (will depend on t loop)
                     % But standard CS defines NotYet as not treated by g + something?
@@ -147,10 +146,8 @@ classdef CsEstimator
                     if obj.ControlGroup == "NeverTreated"
                         control_mask = isinf(G) & valid_dy;
                     else
-                        % Not yet treated by t (and possibly g)
-                        % Definition: Not treated by max(t, g)?
-                        % Usually: G > t (for current t) AND G ~= g
-                        control_mask = (G > max(t, g)) & (G ~= g) & valid_dy;
+                        % Not yet treated: G_i > t (CS2021 definition)
+                        control_mask = (G > t) & valid_dy;
                     end
 
                     if sum(treated_units) == 0 || sum(control_mask) == 0, continue; end
@@ -191,7 +188,7 @@ classdef CsEstimator
                         % If X is (N*T x K), we need to pick the rows.
 
                         % Allow X to be (N x K) or (N*T x K)
-                        [rx, cx] = size(X);
+                        [rx, ~] = size(X);
                         if rx == N_units
                             % Time invariant
                             X_c = X(control_mask, :);
@@ -219,14 +216,32 @@ classdef CsEstimator
                         att = mean(dy_treat - dy_treat_hat);
                     end
 
+                    % Influence function SE (CS2021 Appendix)
+                    n_treat = sum(treated_units);
+                    n_control = sum(control_mask);
+                    n_tot = n_treat + n_control;
+
+                    % IF_i = 1(G_i=g)/P(G_i=g) * (dY_i - E[dY|G=g])
+                    %       - 1(C_i)/P(C_i)   * (dY_i - E[dY|C])
+                    % V = (1/N^2) * sum IF_i^2
+                    psi = zeros(N_units, 1);
+                    mean_treat = mean(dy_treat);
+                    mean_control = mean(dy_control);
+                    p_g = n_treat / N_units;
+                    p_c = n_control / N_units;
+
+                    psi(treated_units) = (dy(treated_units) - mean_treat) / p_g;
+                    psi(control_mask) = -(dy(control_mask) - mean_control) / p_c;
+
+                    se_gt = sqrt(mean(psi.^2) / N_units);
+
                     % Store
                     count = count + 1;
                     Res_gt(count).g = g;
                     Res_gt(count).t = t;
                     Res_gt(count).att = att;
-                    Res_gt(count).N = sum(treated_units) + sum(control_mask);
-
-                    % TODO: Influence function for SE
+                    Res_gt(count).se = se_gt;
+                    Res_gt(count).N = n_tot;
                 end
             end
 

@@ -155,26 +155,24 @@ classdef Rdd < handle
                 XPoly(:, p+1) = x.^p;
             end
 
-            W = diag(w);
-
-            % Beta = (X'WX)^-1 X'Wy
-            XtW = XPoly' * W;
-            XtWX = XtW * XPoly;
+            % Efficient weighted LS without forming full N×N diag matrix
+            Xw   = XPoly .* w;          % row-wise weighting
+            XtWX = Xw' * XPoly;
+            XtWy = Xw' * y;
 
             % Robust check for singularity
             if rcond(XtWX) < 1e-12
-                beta = pinv(XtWX) * (XtW * y);
+                beta = pinv(XtWX) * XtWy;
             else
-                beta = XtWX \ (XtW * y);
+                beta = XtWX \ XtWy;
             end
 
             mu = beta(1);
 
-            % Variance: (X'WX)^-1 (X' W^2 e^2 X) (X'WX)^-1  (HC1 style)
+            % Sandwich variance: (X'WX)^-1 (X'W^2 e^2 X) (X'WX)^-1  (HC1)
             residuals = y - XPoly * beta;
-            We2 = diag(w.^2 .* residuals.^2);
-
-            Meat = XPoly' * We2 * XPoly;
+            u = w .* residuals;          % w * e
+            Meat = (XPoly .* u)' * (XPoly .* u);   % X' diag(w^2 e^2) X
             Inv = pinv(XtWX);
 
             V = Inv * Meat * Inv;
@@ -193,7 +191,7 @@ classdef Rdd < handle
             end
         end
 
-        function h = selectBandwidthIK(~, X, Y, order)
+        function h = selectBandwidthIK(~, X, Y, ~)
             % Imbens-Kalyanaraman (2012)
             N = length(X);
             % Pilot bandwidth

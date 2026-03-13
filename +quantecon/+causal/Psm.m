@@ -121,6 +121,7 @@ classdef Psm < handle
                 keep = (ps >= lo) & (ps <= hi);
             else
                 keep = true(N, 1);
+                lo = min(ps); hi = max(ps);
             end
 
             Yk = Y(keep);  Wk = W(keep);  Xk = X(keep,:);  psk = ps(keep);
@@ -356,7 +357,6 @@ classdef Psm < handle
         function ps = estimatePS(obj, X, W)
             %ESTIMATEPS  Estimate propensity score P(W=1|X).
 
-            N = size(X, 1);
             switch obj.PSModel
                 case "logit"
                     b = glmfit(X, W, 'binomial', 'link', 'logit');
@@ -591,10 +591,7 @@ classdef Psm < handle
             J = 3;  % number of neighbors for variance estimation
 
             % Focal group variance: sigma^2_f(Xi)
-            psFocal = zeros(Nf, 1);
-            % We don't have PS in this function, use X-based distance for variance
-            % But simpler: use matching residuals
-            % Alternative: nearest-neighbor variance estimator (AI 2006, eq 12)
+            % Nearest-neighbor variance estimator (AI 2006, eq 12)
 
             % For focal units: AI (2006 eq.14) — include unit i itself + J nn
             % sigma^2(Xi) = J/(J+1) * s^2_{J,i} = var([Yi; Y_nn], 1)
@@ -637,7 +634,6 @@ classdef Psm < handle
         function [se_att, se_atnt, se_ate] = seBootstrap(obj, Y, W, X, ps) %#ok<INUSD>
             %SEBOOTSTRAP  Nonparametric bootstrap standard errors.
 
-            N  = length(Y);
             B  = obj.NumBootstrap;
             att_b  = zeros(B, 1);
             atnt_b = zeros(B, 1);
@@ -700,7 +696,7 @@ classdef Psm < handle
         %  PRIVATE — Abadie-Imbens (2011) Bias Correction
         % ================================================================
 
-        function bc = biasCorrect(~, X, Y, W, idxFocal, idxDonor, matchIdx, matchW, donorW)
+        function bc = biasCorrect(~, X, Y, ~, idxFocal, idxDonor, matchIdx, matchW, ~)
             %BIASCORRECT  Abadie & Imbens (2011) regression-based bias correction.
             %
             %   For each focal unit i, the bias correction is:
@@ -748,7 +744,7 @@ classdef Psm < handle
         %  PRIVATE — Balance Diagnostics
         % ================================================================
 
-        function bal = balanceDiagnostics(~, X, W, ps, matchIdx, matchW, idx1, idx0)
+        function bal = balanceDiagnostics(~, X, ~, ~, matchIdx, matchW, idx1, idx0)
             %BALANCEDIAGNOSTICS  Standardized mean difference before/after matching.
             %   Reports: VarName, MeanT, MeanC_raw, MeanC_matched, SMD_before, SMD_after
             %   SMD = (mean_T - mean_C) / sqrt((var_T + var_C)/2)

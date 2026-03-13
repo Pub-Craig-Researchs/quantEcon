@@ -2,17 +2,29 @@ classdef SyntheticDid
     % SYNTHETICDID Arkhangelsky et al. (2021) Synthetic DiD Estimator
     %
     %   Combines SC unit weights and Time weights to estimate ATT.
+    %   Includes jackknife standard errors.
+    %
+    %   Reference:
+    %       Arkhangelsky et al. (2021), "Synthetic Difference-in-Differences",
+    %       AER 111(12).
 
     methods
-        function res = estimate(obj, Y, D)
+        function res = estimate(~, Y, D)
             % ESTIMATE Estimate SDID
             % Inputs:
             %   Y: (N x T) Outcome Matrix
             %   D: (N x T) Treatment Matrix (0/1)
             %
-            % Assumes Block Design: Last N_tr units are treated, Last T_post periods are post.
+            % Assumes Block Design: treatment indicator defines blocks.
+
+            arguments
+                ~
+                Y (:,:) double
+                D (:,:) double
+            end
 
             [N, T] = size(Y);
+            assert(isequal(size(D), [N, T]), 'Y and D must have the same dimensions.');
 
             % Identify Treated and Control Blocks
             % Simplified for block design.
@@ -106,28 +118,71 @@ classdef SyntheticDid
             % is_post: (1 x T) logical array for post-periods
             % Weights, Regularization, Solver: properties of the object
 
-            Y_pre_trt_avg = mean(Y_tr_pre, 1); % (1 x T_pre)
+            Y_pre_trt_avg = mean(Y_tr_pre, 1); %#ok<NASGU>
 
-            % Weighted Treatment Post
-            att_tr_post = mean(mean(Y_tr_post)); % Unweighted usually?
+            % --- Compute ATT using SDID weighted DiD ---
+            % tau = [lambda_post' * Y_bar_tr_post - lambda_pre' * Y_bar_tr_pre]
+            %     - [lambda_post' * (omega' * Y_co_post) - lambda_pre' * (omega' * Y_co_pre)]
+            % where Y_bar_tr = mean across treated units
 
-            % Weighted Treatment Pre (Time Weighted)
-            % Y_tr_pre is (N_tr x T_pre)
-            % We use lambda to weight time
-            att_tr_pre = mean(Y_tr_pre * lambda(times_pre));
+            lambda_pre_vec  = lambda(times_pre);
+            lambda_post_vec = lambda(times_post);
 
-            % Weighted Control Post (Unit Weighted)
-            % Y_co_post is (N_co x T_post)
-            % We use omega to weight units
-            att_co_post = mean(omega' * Y_co_post);
+            % Mean across treated units
+            Y_tr_bar_pre  = mean(Y_tr_pre, 1)';   % (T_pre x 1)
+            Y_tr_bar_post = mean(Y_tr_post, 1)';  % (T_post x 1)
 
-            % Weighted Control Pre (Unit & Time Weighted)
-            % Y_co_pre is (N_co x T_pre)
-            att_co_pre = omega' * Y_co_pre * lambda(times_pre);
+            % Weighted control outcomes
+            Y_co_w_pre  = Y_co_pre' * omega;    % (T_pre x 1)
+            Y_co_w_post = Y_co_post' * omega;   % (T_post x 1)
 
-            tau = (att_tr_post - att_tr_pre) - (att_co_post - att_co_pre);
+            tau = (lambda_post_vec' * Y_tr_bar_post - lambda_pre_vec' * Y_tr_bar_pre) ...
+                - (lambda_post_vec' * Y_co_w_post - lambda_pre_vec' * Y_co_w_pre);
 
-            res = struct('ATT', tau, 'Omega', omega, 'Lambda', lambda);
+            % --- Jackknife SE (leave-one-unit-out) ---
+            N_tr = length(units_tr);
+            N_co = length(units_co);
+            tau_jack = zeros(N_tr + N_co, 1);
+
+            for jj = 1:(N_tr + N_co)
+                if jj <= N_co
+                    % Drop one control unit
+                    idx_co_j = [1:jj-1, jj+1:N_co];
+                    Y_co_j = Y_co(idx_co_j, :);
+                    Y_tr_j = Y_tr;
+
+                    % Re-estimate omega
+                    target_j = mean(Y_tr_j(:, times_pre), 1)';
+                    X_j = Y_co_j(:, times_pre)';
+                    omega_j = quantecon.optimization.Simplex.solve(X_j, target_j, 1e-6);
+
+                    Y_co_w_pre_j  = Y_co_j(:, times_pre)' * omega_j;
+                    Y_co_w_post_j = Y_co_j(:, times_post)' * omega_j;
+
+                    Y_tr_bar_pre_j  = mean(Y_tr_j(:, times_pre), 1)';
+                    Y_tr_bar_post_j = mean(Y_tr_j(:, times_post), 1)';
+                else
+                    % Drop one treated unit
+                    idx_tr_j = jj - N_co;
+                    sel = [1:idx_tr_j-1, idx_tr_j+1:N_tr];
+                    Y_tr_j = Y_tr(sel, :);
+
+                    Y_co_w_pre_j  = Y_co_w_pre;
+                    Y_co_w_post_j = Y_co_w_post;
+
+                    Y_tr_bar_pre_j  = mean(Y_tr_j(:, times_pre), 1)';
+                    Y_tr_bar_post_j = mean(Y_tr_j(:, times_post), 1)';
+                end
+
+                tau_jack(jj) = (lambda_post_vec' * Y_tr_bar_post_j - lambda_pre_vec' * Y_tr_bar_pre_j) ...
+                             - (lambda_post_vec' * Y_co_w_post_j  - lambda_pre_vec' * Y_co_w_pre_j);
+            end
+
+            % Jackknife variance
+            n_jack = length(tau_jack);
+            se_tau = sqrt((n_jack - 1) / n_jack * sum((tau_jack - mean(tau_jack)).^2));
+
+            res = struct('ATT', tau, 'SE', se_tau, 'Omega', omega, 'Lambda', lambda);
         end
     end
 end

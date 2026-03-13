@@ -7,11 +7,15 @@ classdef ImputationEstimator
     %   Usage:
     %       mdl = quantecon.panel.did.ImputationEstimator();
     %       res = mdl.estimate(y, treat, time, id, X);
+    %
+    %   Reference:
+    %       Borusyak, Jaravel & Spiess (2024), "Revisiting Event-Study
+    %       Designs: Robust and Efficient Estimation", ReStud.
 
     methods
-        function res = estimate(obj, y, treat, time, id, X)
+        function res = estimate(~, y, treat, time, id, X)
             arguments
-                obj
+                ~
                 y (:,1) double
                 treat (:,1) double
                 time (:,1) double
@@ -19,140 +23,153 @@ classdef ImputationEstimator
                 X (:,:) double = []
             end
 
-            % 1. Identify Estimation Sample (D=0)
-            % Untreated observations: Not currently treated.
-            % Note: In BJS, "untreated" means D_it = 0.
-            % This includes Never-Treated and Not-Yet-Treated.
-
+            % 1. Identify estimation samples
             mask_0 = (treat == 0);
             mask_1 = (treat == 1);
+            N1 = sum(mask_1);
 
             if sum(mask_0) == 0
                 error('No untreated observations found.');
             end
+            if N1 == 0
+                error('No treated observations found.');
+            end
 
-            y_0 = y(mask_0);
-            time_0 = time(mask_0);
-            id_0 = id(mask_0);
-
-            % 2. Fit Model on D=0
-            % y_it(0) = alpha_i + lambda_t + X_it * beta + epsilon
-            % Utilize FixedEffects class for efficient estimation
-
-            fe_mdl = quantecon.panel.FixedEffects();
-            % Need to pass X if it exists
-            if isempty(X)
-                % Just Fixed Effects
-                % FE model expects some X? estimate(y, X, ...)
-                % If X is empty, FixedEffects might need a dummy or handle it.
-                % Let's create a dummy Regressor of zeros?
-                % Or use a specialized FE solver for just alpha+lambda.
-                % quantecon.panel.FixedEffects currently requires X.
-                % Let's construct dummy X = ones? No, that's collinear with intercept.
-                % Let's use random noise with near-zero weight? No.
-
-                % Fallback: Create a column of zeros and ignore coefficient?
-                X_0 = zeros(length(y_0), 1);
-                res_0 = fe_mdl.estimate(y_0, X_0, id_0, time_0);
-                % Alpha and Lambda are in the residuals?
-                % Use predictions: y_hat = alpha_i + lambda_t.
-                % FixedEffects returns y_hat? Check.
-                beta_hat = 0; % effectively
-            else
-                X_0 = X(mask_0, :);
-                res_0 = fe_mdl.estimate(y_0, X_0, id_0, time_0);
+            % 2. Fit outcome model on D=0 using covariates (if any)
+            beta_hat = zeros(0, 1);
+            if ~isempty(X)
+                fe_mdl = quantecon.panel.FixedEffects();
+                res_0 = fe_mdl.estimate(y(mask_0), X(mask_0, :), id(mask_0), time(mask_0));
                 beta_hat = res_0.Results.Coefficients;
             end
 
-            % 3. Impute Y(0) for Treated (D=1)
-            % y_it(0)_hat = alpha_i_hat + lambda_t_hat + X_it * beta_hat
-            % We need to extract FEs from the trained model.
-            % FixedEffects might not expose FEs directly if it uses Within Transformation.
-            % If it uses Within, we have: predict(new_data) is hard without FEs.
-
-            % ALTERNATIVE: Explicitly solve for FEs or use lscov with dummies.
-            % Or, predict y_hat using the structure:
-            % y_hat = y_bar_i + y_bar_t - y_bar_bar + (X - X_bar)*beta
-            % This is valid for balanced panels. Unbalanced is harder.
-
-            % Implementation decision:
-            % Use a simpler approach for Imputation: High-Dimensional OLS with simple dummies?
-            % Or iterate?
-            % Let's assume FixedEffects class has a 'predict' or 'getFE' method.
-            % If not, we iterate:
-            % y - X*b = alpha + lambda + e
-            % Estimate alpha, lambda from residuals.
-
-            % Get residuals from estimation
-            u_0 = res_0.Results.Residuals;
-            % u_0 contains (alpha_i + lambda_t + e_it) if we only removed X*beta?
-            % No, Within estimator removes FEs. u_0 approximates e_it.
-            % Wait, we need y_hat = alpha + lambda + X*beta.
-            % y_0 = y_hat + e.
-            % So y_hat_0 = y_0 - res_0.Residuals.
-
-            % We need to extrapolate y_hat to D=1 sample.
-            % This implies we need alpha_i for treated units and lambda_t for post periods.
-            % - Treated units have pre-periods (in D=0). So alpha_i is identifiable.
-            % - Post periods have control units (in D=0). So lambda_t is identifiable.
-            % This is the "Imputation" logic.
-
-            % Recover FE Method:
-            % 1. Compute offsets:
-            %    resid_XB = y - X * beta_hat; (All units)
-            %    Use D=0 to estimate FEs on resid_XB.
-            % 2. Algorithm:
-            %    Iterate or use connectedness.
-            %    Simple case: alpha_i = mean(resid_XB_i) - mean(lambda) ??
-            %    Jointly solve: resid_XB ~ TimeDummies + UnitDummies
-
-            % For speed in MATLAB, use lscov with sparse matrix?
-            % Or simpler:
-            % Or simpler:
+            % 3. Partial out covariates: Y_star = y - X*beta
             if isempty(X)
                 Y_star = y;
             else
-                Y_star = y - (X * beta_hat);
+                Y_star = y - X * beta_hat;
             end
 
-            % Solve Y_star ~ FEs on D=0
-            % Construct sparse design matrix for FEs
-            [ids, ~, idIdx] = unique(id);
-            [times, ~, timeIdx] = unique(time);
+            % 4. Recover unit and time FEs from D=0 sample
+            [ids, ~, idIdx_full] = unique(id);
+            [times, ~, tIdx_full] = unique(time);
+            N_units = length(ids);
+            T_periods = length(times);
 
-            % Subset to D=0
-            id_0 = idIdx(mask_0);
-            t_0 = timeIdx(mask_0);
+            id_0 = idIdx_full(mask_0);
+            t_0  = tIdx_full(mask_0);
             y_star_0 = Y_star(mask_0);
+            n0 = length(y_star_0); %#ok<NASGU>
 
-            % Design: [D_id, D_time]
-            % Drop first of one to identify
-            D_id = sparse(1:length(id_0), id_0, 1, length(id_0), length(ids));
-            D_t = sparse(1:length(t_0), t_0, 1, length(t_0), length(times));
+            % Solve for FEs using iterative demeaning (Alternating Projections)
+            % to avoid the rank-deficiency issue of the dummy approach.
+            % Initialize: alpha_i = mean(y_star_0) for each unit i
+            alpha = zeros(N_units, 1);
+            lambda = zeros(T_periods, 1);
 
-            % Solve [D_id, D_t] * [alpha; lambda] = y_star_0
-            % Rank deficiency handling needed.
-            Design = [D_id, D_t];
-            params = Design \ y_star_0;
+            % Compute means via accumarray on D=0 sample
+            for iter = 1:100
+                % Update lambda: lambda_t = mean_t(y_star_0 - alpha_i)
+                resid_alpha = y_star_0 - alpha(id_0);
+                cnt_t = accumarray(t_0, 1, [T_periods, 1]);
+                sum_t = accumarray(t_0, resid_alpha, [T_periods, 1]);
+                active_t = (cnt_t > 0);
+                lambda(active_t) = sum_t(active_t) ./ cnt_t(active_t);
 
-            alpha_hat = params(1:length(ids));
-            lambda_hat = params(length(ids)+1:end);
+                % Update alpha: alpha_i = mean_i(y_star_0 - lambda_t)
+                resid_lambda = y_star_0 - lambda(t_0);
+                cnt_i = accumarray(id_0, 1, [N_units, 1]);
+                sum_i = accumarray(id_0, resid_lambda, [N_units, 1]);
+                active_i = (cnt_i > 0);
+                alpha(active_i) = sum_i(active_i) ./ cnt_i(active_i);
 
-            % 4. Predict Y(0) for D=1
-            id_1 = idIdx(mask_1);
-            t_1 = timeIdx(mask_1);
+                % Check convergence
+                fitted = alpha(id_0) + lambda(t_0);
+                resid = y_star_0 - fitted;
+                if iter > 1 && max(abs(resid - prev_resid)) < 1e-12
+                    break;
+                end
+                prev_resid = resid;
+            end
 
-            y0_hat = alpha_hat(id_1) + lambda_hat(t_1);
+            % 5. Impute Y(0) for treated observations
+            id_1 = idIdx_full(mask_1);
+            t_1  = tIdx_full(mask_1);
+
+            y0_hat = alpha(id_1) + lambda(t_1);
             if ~isempty(X)
                 y0_hat = y0_hat + X(mask_1, :) * beta_hat;
             end
 
-            % 5. ATT = Mean(y(1) - y0_hat)
+            % 6. Individual treatment effects and ATT
             y_1 = y(mask_1);
             tau_it = y_1 - y0_hat;
             att = mean(tau_it);
 
-            res = struct('ATT', att, 'Tau_it', tau_it, 'Beta', beta_hat);
+            % 7. Standard errors (cluster by unit)
+            % V(ATT) = (1/N1^2) * sum_i (sum_{t: D_it=1} tau_it - ATT)^2
+            % This is the BJS heteroskedasticity-robust SE clustered by unit
+            uid_treated = unique(id_1);
+            nC = length(uid_treated);
+            score_sum = 0;
+            for c = 1:nC
+                mask_c = (id_1 == uid_treated(c));
+                score_c = sum(tau_it(mask_c) - att);
+                score_sum = score_sum + score_c^2;
+            end
+
+            % Small-sample correction: G/(G-1)
+            if nC > 1
+                adj = nC / (nC - 1);
+            else
+                adj = 1;
+            end
+            se_att = sqrt(adj * score_sum / N1^2);
+
+            % 8. Event-study decomposition (ATT by relative time)
+            % Identify group (first treatment) per unit
+            G_unit = inf(N_units, 1);
+            for i = 1:N_units
+                idx_i = (idIdx_full == i);
+                t_i = time(idx_i);
+                d_i = treat(idx_i);
+                [ts, sp] = sort(t_i);
+                ds = d_i(sp);
+                fi = find(ds == 1, 1, 'first');
+                if ~isempty(fi)
+                    G_unit(i) = ts(fi);
+                end
+            end
+
+            % Relative time for treated obs
+            rel_time = time(mask_1) - G_unit(id_1);
+            u_rel = unique(rel_time);
+            n_rel = length(u_rel);
+            att_e = zeros(n_rel, 1);
+            se_e  = zeros(n_rel, 1);
+
+            for j = 1:n_rel
+                emask = (rel_time == u_rel(j));
+                att_e(j) = mean(tau_it(emask));
+
+                % Cluster SE for this event time
+                score_sum_e = 0;
+                n1_e = sum(emask);
+                for c = 1:nC
+                    mask_ce = (id_1 == uid_treated(c)) & emask;
+                    if any(mask_ce)
+                        score_sum_e = score_sum_e + (sum(tau_it(mask_ce) - att_e(j)))^2;
+                    end
+                end
+                if nC > 1
+                    se_e(j) = sqrt(nC / (nC - 1) * score_sum_e / n1_e^2);
+                end
+            end
+
+            res = struct('ATT', att, 'SE', se_att, 'Tau_it', tau_it, ...
+                'Beta', beta_hat, 'Alpha', alpha, 'Lambda', lambda, ...
+                'EventStudy', table(u_rel, att_e, se_e, ...
+                    'VariableNames', {'RelTime', 'ATT', 'SE'}));
         end
     end
 end

@@ -39,9 +39,12 @@ classdef WooldridgeEstimator
                 idx_i = (idIdx == i);
                 t_i = time(idx_i);
                 d_i = treat(idx_i);
-                first_idx = find(d_i == 1, 1, 'first');
+                % Sort by time to correctly find first treatment period
+                [t_i_sorted, sortPos] = sort(t_i);
+                d_i_sorted = d_i(sortPos);
+                first_idx = find(d_i_sorted == 1, 1, 'first');
                 if ~isempty(first_idx)
-                    G(i) = t_i(first_idx);
+                    G(i) = t_i_sorted(first_idx);
                 end
             end
             G_long = G(idIdx);
@@ -90,39 +93,30 @@ classdef WooldridgeEstimator
             group_dummies = group_dummies(:, 2:end);
 
             % Interactions
-            interaction_cols = [];
-            interaction_names = [];
+            % Pre-allocate interaction columns
+            maxCols = length(g_list) * length(times);
+            interaction_cols = zeros(length(y), maxCols);
+            interaction_names = repmat(struct('g', 0, 't', 0), maxCols, 1);
+            nInt = 0;
 
             for g_val = g_list'
-                % For each treated group
                 for t_val = times'
-                    % Create dummy: 1(G=g) * 1(time=t)
-                    % Only needed for Post-Treatment (ATT) or All for Event Study?
-                    % Wooldridge suggests full saturation for event study flexibility,
-                    % but standard ATT(g,t) is defined for t >= g.
-                    % Let's include for t >= g (Post)
-
                     if t_val >= g_val
-                        col = double(G_long == g_val & time == t_val);
-                        interaction_cols = [interaction_cols, col]; %#ok<AGROW>
-                        interaction_names = [interaction_names; struct('g', g_val, 't', t_val)]; %#ok<AGROW>
+                        nInt = nInt + 1;
+                        interaction_cols(:, nInt) = double(G_long == g_val & time == t_val);
+                        interaction_names(nInt) = struct('g', g_val, 't', t_val);
                     end
                 end
             end
-
-            % Covariates
-            if ~isempty(X)
-                % Wooldridge suggests interacting X with Time FEs or Group FEs?
-                % For simple inclusion: Just X.
-            end
+            interaction_cols = interaction_cols(:, 1:nInt);
+            interaction_names = interaction_names(1:nInt);
 
             Z = [ones(length(y), 1), group_dummies, time_dummies, interaction_cols, X];
 
             % OLS
             beta = Z \ y;
 
-            % Standard Errors (Cluster needed)
-            % Calculate Residuals
+            % Residuals
             u = y - Z * beta;
 
             % Cluster-Robust SE (cluster by id)
