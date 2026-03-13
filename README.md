@@ -5,11 +5,17 @@ High-performance MATLAB econometrics toolbox combining best-in-class methods fro
 - `MFE Toolbox` (Financial Econometrics)
 - `FSDA` (Robust Statistics)
 - `BEAR Toolbox` (Bayesian VARs)
-- `DiDToolbox` (Difference-in-Differences, from https://github.com/relsas/DiDToolbox)
+- [`DiDToolbox`](https://github.com/relsas/DiDToolbox) (Difference-in-Differences)
 - `panelPlus` (Causal Inference & ML)
 - `PSY-IVX` (Bubble Detection & Predictive Regression)
 - `Abadie & Imbens` (Matching Estimators & Bias Correction)
 - `Quilis` (Temporal Disaggregation)
+- `Montiel Olea, Stock & Watson` (Local Projection & SVAR-IV Inference)
+- `Miranda-Agrippino & Banbura-Modugno` (Dynamic Factor Models)
+- `Dube, Girardi, Jorda & Taylor` (LP-DiD)
+- `Ballestra & Tezza` (Commodity Futures Pricing)
+
+> **20 modules** · **180+ functions** · Cross-validated against Stata, Python & R
 
 ## Installation
 
@@ -20,27 +26,28 @@ savepath;
 
 ## Module Overview
 
-| # | Module | Description | Functions |
-|---|--------|-------------|-----------|
-| 1 | `+base` | OLS, GMM, HAC, KDE, Bootstrap, Distributions | 12 |
-| 2 | `+panel` | Fixed Effects, Clustering, DiD, Panel VAR | 12 |
-| 3 | `+timeseries` | GARCH, SVAR, Markov, ARFIMA, fOU, DEKF, Hurst, Disagg | 30 |
-| 4 | `+bayes` | BVAR, TVP-VAR, SSVS, FAVAR, MF-BVAR, Sign-ID, MH | 14 |
-| 5 | `+tests` | ADF, DF-GLS, PSY, IVX, MCS, TV-Granger, Homosked | 14 |
-| 6 | `+multivariate` | DCC, BEKK, Copula, DCC-MIDAS, Reduced Rank | 5 |
-| 7 | `+finance` | Connectedness, Networks, Heston, HistVol, Indicators | 6 |
-| 8 | `+risk` | CoVaR, MES, SRISK | 3 |
-| 9 | `+ml` | Causal Forest (Honest/DR/QTE), Double ML | 2 |
-| 10 | `+causal` | RDD, PSM, SEM | 3 |
-| 11 | `+factor` | IPCA, Scaled PCA | 2 |
-| 12 | `+robust` | LTS, MCD, Robust PCA, Trimmed Clustering | 5 |
-| 13 | `+midas` | MIDAS Regression (Beta/ExpAlmon) | 3 |
-| 14 | `+forecasting` | BMA, Murphy Diagram | 2 |
-| 15 | `+models` | QBLL-VAR | 1 |
-| 16 | `+sem` | PLS-SEM | 1 |
-| 17 | `+optimization` | Simplex Solver | 1 |
-| 18 | `+utils` | VAR Utilities | 1 |
-| 19 | `+vis` | Gramm, notBoxPlot, exportFig | 16 |
+| #  | Module            | Description                                                                                               | Functions |
+| -- | ----------------- | --------------------------------------------------------------------------------------------------------- | --------- |
+| 1  | `+base`         | OLS, GMM, HAC, KDE, Bootstrap (Wild/Block/Stationary), Distributions, HP Filter, VARHAC, Matrix Ops       | 17        |
+| 2  | `+panel`        | Fixed Effects, Clustering, DiD, Panel VAR                                                                 | 12        |
+| 3  | `+timeseries`   | GARCH, SVAR, SVAR-IV, LP (LagAug/GLS/Smooth/Bayesian), SimBands, Markov, ARFIMA, fOU, DEKF, Hurst, Disagg | 43        |
+| 4  | `+bayes`        | BVAR, TVP-VAR, SSVS, FAVAR, MF-BVAR, Sign-ID, MH, HPD, Gauss-Hermite                                      | 16        |
+| 5  | `+tests`        | ADF, DF-GLS, PSY, IVX, MCS, BSDS/SPA, TV-Granger, Homosked, Verification Suites                           | 25        |
+| 6  | `+multivariate` | DCC, BEKK, Copula, DCC-MIDAS, Reduced Rank                                                                | 5         |
+| 7  | `+finance`      | Connectedness, Networks, Heston, HistVol, Indicators, CommodityFutures                                    | 7         |
+| 8  | `+risk`         | CoVaR, MES, SRISK                                                                                         | 3         |
+| 9  | `+ml`           | Causal Forest (Honest/DR/QTE), Double ML                                                                  | 2         |
+| 10 | `+causal`       | RDD, PSM, SEM, LP-DiD                                                                                     | 4         |
+| 11 | `+factor`       | IPCA, Scaled PCA, DFM, Block-DFM                                                                          | 4         |
+| 12 | `+robust`       | LTS, MCD, Robust PCA, Trimmed Clustering                                                                  | 5         |
+| 13 | `+midas`        | MIDAS Regression (Beta/ExpAlmon)                                                                          | 3         |
+| 14 | `+forecasting`  | BMA, Murphy Diagram                                                                                       | 2         |
+| 15 | `+models`       | QBLL-VAR                                                                                                  | 1         |
+| 16 | `+sem`          | PLS-SEM                                                                                                   | 1         |
+| 17 | `+optimization` | Simplex, CsminWel, NumGrad                                                                                | 3         |
+| 18 | `+utils`        | VAR Utilities                                                                                             | 1         |
+| 19 | `+vis`          | Gramm, exportFig, ConnectednessVis                                                                        | 17        |
+| 20 | `+dsge`         | Gensys, Perturbation, Projection, Kalman, Tauchen, Rouwenhorst, Lyapunov                                  | 9         |
 
 ---
 
@@ -114,6 +121,24 @@ Wild Bootstrap resampling (Rademacher weights).
 boot_samples = quantecon.base.WildBootstrap(residuals, 1000);
 ```
 
+#### BlockBootstrap
+
+Circular block bootstrap for stationary, dependent time series (Kunsch 1989; Politis & Romano 1992).
+
+```matlab
+[bsdata, idx] = quantecon.base.BlockBootstrap(y, 1000, 10);
+% For multivariate: pass indices, then index your (T x K) matrix
+[~, idx] = quantecon.base.BlockBootstrap((1:T)', B, w);
+```
+
+#### StationaryBootstrap
+
+Politis & Romano (1994) stationary bootstrap with random (geometric) block lengths.
+
+```matlab
+[bsdata, idx] = quantecon.base.StationaryBootstrap(y, 1000, 10);
+```
+
 #### Distributions
 
 Wishart and Inverse-Wishart draws for Bayesian inference.
@@ -150,6 +175,33 @@ mdl = quantecon.base.Kde(x, 'Kernel', 'gaussian', 'Bandwidth', 'silverman');
 f_new = mdl.evaluate(xi_new);   % evaluate at specific points
 ```
 
+#### HpFilter
+
+Hodrick-Prescott (1997) filter for trend-cycle decomposition.
+
+```matlab
+[trend, cycle] = quantecon.base.HpFilter(y);
+[trend, cycle] = quantecon.base.HpFilter(y, 'Lambda', 1600);
+```
+
+#### VarHac
+
+den Haan & Levin (1997) VARHAC long-run covariance estimator.
+
+```matlab
+Omega = quantecon.base.VarHac(data, 'MaxLag', 4, 'Criterion', 'BIC');
+```
+
+#### MatrixOps
+
+Commutation, duplication, and elimination matrices (Magnus & Neudecker).
+
+```matlab
+K = quantecon.base.MatrixOps.Commutation(3, 4);
+[D, Dinv] = quantecon.base.MatrixOps.Duplication(3);
+L = quantecon.base.MatrixOps.Elimination(3);
+```
+
 ---
 
 ### 2. `+panel` — Panel Data
@@ -182,15 +234,15 @@ res = mdl.estimate(y, treat, post, X, cluster);
 
 #### `+panel.did` — Advanced DiD Estimators
 
-| Class | Method | Reference |
-|-------|--------|-----------|
-| `CsEstimator` | Group-Time ATT | Callaway & Sant'Anna (2021) |
-| `SunAbraham` | Interaction-Weighted | Sun & Abraham (2021) |
-| `WooldridgeEstimator` | Two-Way Mundlak | Wooldridge (2021) |
+| Class                   | Method                    | Reference                         |
+| ----------------------- | ------------------------- | --------------------------------- |
+| `CsEstimator`         | Group-Time ATT            | Callaway & Sant'Anna (2021)       |
+| `SunAbraham`          | Interaction-Weighted      | Sun & Abraham (2021)              |
+| `WooldridgeEstimator` | Two-Way Mundlak           | Wooldridge (2021)                 |
 | `ImputationEstimator` | Counterfactual Imputation | Borusyak, Jaravel & Spiess (2024) |
-| `SyntheticDid` | Synthetic DiD | Arkhangelsky et al. (2021) |
-| `BaconDecomposition` | TWFE Decomposition | Goodman-Bacon (2021) |
-| `Aggregator` | ATT Aggregation | Event Study / Group / Calendar |
+| `SyntheticDid`        | Synthetic DiD             | Arkhangelsky et al. (2021)        |
+| `BaconDecomposition`  | TWFE Decomposition        | Goodman-Bacon (2021)              |
+| `Aggregator`          | ATT Aggregation           | Event Study / Group / Calendar    |
 
 ```matlab
 % Callaway & Sant'Anna
@@ -261,10 +313,83 @@ irf_res = mdl.irf(20);
 
 #### LocalProjection
 
-Impulse responses via Local Projections (Jorda 2005).
+Unified dispatcher for Local Projection impulse responses (Jorda 2005). Supports five methods via the `Method` option.
 
 ```matlab
+% Standard LP (Jorda 2005)
 res = quantecon.timeseries.LocalProjection(Y, horizon, lags);
+
+% Lag-Augmented LP/VAR (Montiel Olea & Plagborg-Moller 2021)
+res = quantecon.timeseries.LocalProjection(Y, horizon, lags, 'Method', 'lagaug');
+
+% GLS-Efficient LP (Lusompa 2023)
+res = quantecon.timeseries.LocalProjection(Y, horizon, lags, 'Method', 'gls');
+
+% B-spline Smooth LP (Barnichon & Brownlees 2019)
+res = quantecon.timeseries.LocalProjection(Y, horizon, lags, 'Method', 'smooth');
+
+% Bayesian LP (Ferreira, Miranda-Agrippino & Ricco)
+res = quantecon.timeseries.LocalProjection(Y, horizon, lags, 'Method', 'bayesian');
+```
+
+#### LpLagAug
+
+Lag-Augmented Local Projections / VAR impulse responses (Montiel Olea & Plagborg-Moller 2021). Delta-method and bootstrap confidence intervals with Pope (1990) bias correction.
+
+```matlab
+res = quantecon.timeseries.LpLagAug(Y, 20, 4);
+res = quantecon.timeseries.LpLagAug(Y, 20, 4, 'Method', 'VAR', 'Alpha', 0.1, 'NBoot', 500);
+% res.IRF, res.CI_lo, res.CI_hi, res.BIC_lag
+```
+
+#### LpGls
+
+GLS-Efficient Local Projections via Wold IRF correction (Lusompa 2023). Sandwich and block-wild bootstrap standard errors.
+
+```matlab
+res = quantecon.timeseries.LpGls(Y, 20, 4);
+res = quantecon.timeseries.LpGls(Y, 20, 4, 'CIMethod', 'boot', 'NBoot', 500);
+% res.IRF, res.CI_lo, res.CI_hi
+```
+
+#### LpSmooth
+
+B-spline penalized smooth Local Projections (Barnichon & Brownlees 2019). LOO-CV for penalty selection.
+
+```matlab
+res = quantecon.timeseries.LpSmooth(Y, 20, 4);
+res = quantecon.timeseries.LpSmooth(Y, 20, 4, 'NKnots', 5, 'SplineOrder', 3);
+% res.IRF, res.CI_lo, res.CI_hi, res.Lambda
+```
+
+#### Blp
+
+Bayesian Local Projections with Normal-Inverse-Wishart prior (Ferreira, Miranda-Agrippino & Ricco). Gibbs sampling posterior with optimized hyperparameters.
+
+```matlab
+res = quantecon.timeseries.Blp(Y, 20, 4);
+res = quantecon.timeseries.Blp(Y, 20, 4, 'NDraws', 2000, 'NBurn', 500, 'Credibility', 0.90);
+% res.IRF, res.CI_lo, res.CI_hi, res.Hyperparams
+```
+
+#### SvarIv
+
+SVAR identification via external instruments (Montiel Olea, Stock & Watson 2021). Plug-in delta-method and MSW weak-IV robust Anderson-Rubin confidence intervals.
+
+```matlab
+res = quantecon.timeseries.SvarIv(Y, Z, 20, 4);
+res = quantecon.timeseries.SvarIv(Y, Z, 20, 4, 'Alpha', 0.05, 'CIMethod', 'both');
+% res.IRF, res.CI_dm_lo/hi, res.CI_ar_lo/hi, res.F_eff
+```
+
+#### SimBands
+
+Simultaneous confidence bands for impulse response functions (Montiel Olea & Plagborg-Moller 2019). Methods: sup-t, Bonferroni, Sidak, projection, pointwise, calibrated.
+
+```matlab
+bands = quantecon.timeseries.SimBands(IRF_draws);
+bands = quantecon.timeseries.SimBands(IRF_draws, 'Method', 'sup-t', 'Alpha', 0.10);
+% bands.lo, bands.hi, bands.Method
 ```
 
 #### MarkovSwitching
@@ -389,6 +514,14 @@ mdl = quantecon.bayes.Favar(3, 1, "twostep");
 res = mdl.estimate(Y_large, Y_var);
 ```
 
+#### FactorVar
+
+Two-step Factor-Augmented Bayesian VAR (BBE 2005) — simplified wrapper with PCA factor extraction and Minnesota prior.
+
+```matlab
+results = quantecon.bayes.FactorVar(XY, [], 3, 1);
+```
+
 #### Mfbvar
 
 Mixed-Frequency BVAR (Schorfheide & Song 2015).
@@ -442,6 +575,23 @@ mdl = quantecon.bayes.MhSampler(@logpost, theta0, 'NSamp', 5000, 'Proposal', 'no
 res = mdl.sample();
 ```
 
+#### HpdInterval
+
+Highest Posterior Density credible intervals from MCMC draws.
+
+```matlab
+bands = quantecon.bayes.HpdInterval(draws, 'Prob', 0.9);
+bands = quantecon.bayes.HpdInterval(draws, 'Prob', 0.9, 'Shortest', true);
+```
+
+#### GaussHermite
+
+Gauss-Hermite quadrature nodes and weights (Golub-Welsch algorithm).
+
+```matlab
+[x, w] = quantecon.bayes.GaussHermite(5);
+```
+
 ---
 
 ### 5. `+tests` — Statistical Tests & Bubble Detection
@@ -453,6 +603,14 @@ Augmented Dickey-Fuller with AIC/BIC lag selection.
 ```matlab
 tstat = quantecon.tests.Adf(y, 0, 2);       % Fixed lag = 2
 tstat = quantecon.tests.Adf(y, 2, 4);       % BIC-selected (max 4)
+```
+
+#### AdfRes
+
+Restricted ADF regression under the unit-root null. Provides null-hypothesis residuals for the wild bootstrap procedure (PsyBoot).
+
+```matlab
+[beta, eps, lag] = quantecon.tests.AdfRes(y, 2, 4);
 ```
 
 #### Psy / PsyCv / PsyBoot
@@ -503,6 +661,16 @@ Model Confidence Set (Hansen, Lunde & Nason 2011).
 ```matlab
 res = quantecon.tests.Mcs(LossMatrix, 'Alpha', 0.10, 'NumBoot', 5000);
 disp(res.Included)   % models in superior set
+```
+
+#### Bsds
+
+White's Reality Check & Hansen's Superior Predictive Ability (SPA) test.
+
+```matlab
+[c, u, l] = quantecon.tests.Bsds(benchLoss, modelLosses, 'B', 1000, 'BlockLen', 12);
+% c = Hansen SPA p-value, u = White RC p-value, l = lower bound
+% For "goods" (returns): pass -bench, -models
 ```
 
 #### BreuschPagan
@@ -592,14 +760,23 @@ res = quantecon.multivariate.ReducedRankReg(y, x, 2);
 
 #### Connectedness
 
-Diebold-Yilmaz (2009, 2012) and Barunik-Krehlik (2018) spillover indexes.
+Advanced framework replicating the R `ConnectednessApproach` package.
+Supports Diebold-Yilmaz (2009), Barunik-Krehlik (2018), Quantile VAR (QVAR), Elastic Net VAR, and Joint/Extended Joint Decompositions (Lastrapes & Wiesen, 2021).
 
 ```matlab
+% 1. Model Estimation (e.g. Quantile VAR at Tau=0.50)
 cn = quantecon.finance.Connectedness(data);
-cn.estimate('Method', 'tvp', 'Lags', 1, 'Shrinkage', 0.1);
-cn.decompose('Horizon', 10);
+cn.estimate('Method', 'qvar', 'Lags', 1, 'Tau', 0.5);
+
+% 2. Forecast Error Variance Decomposition (e.g. Joint Decomposition)
+cn.decompose('Horizon', 10, 'DecompType', 'joint');
 total = cn.Indices.Total;
-net   = cn.Indices.Net;
+
+% 3. Grammar-of-Graphics Visualization
+quantecon.vis.ConnectednessVis.plotTCI(cn);
+quantecon.vis.ConnectednessVis.plotNET(cn);
+quantecon.vis.ConnectednessVis.plotDirectional(cn, 'FROM');
+quantecon.vis.ConnectednessVis.plotNetwork(cn);
 ```
 
 #### DynamicNetworks
@@ -642,6 +819,35 @@ Heston (1993) stochastic volatility option pricing via Fourier inversion.
 
 ```matlab
 price = quantecon.finance.HestonPrice(S0, K, r, T, v0, kappa, theta, sigma, rho);
+```
+
+#### CommodityFutures
+
+Multi-factor commodity futures pricing via Kalman filter MLE (Ballestra & Tezza, *Quantitative Finance*). Estimates a 4-factor state-space model where the latent state vector is [log spot price, convenience yield, interest rate, stochastic volatility]. Futures prices follow a quasi-affine representation with coefficients computed via 4th-order Runge-Kutta.
+
+Supports two estimation modes:
+
+- **Mode A (commodity-only)**: all 4 factors latent, inferred from futures prices alone
+- **Mode B (with rates)**: interest rate observed from bond yields, appended as an extra observation equation `r_obs = [0,0,1,0] * x_t + eta_t`
+
+```matlab
+% Mode A: commodity-only (all factors latent)
+result = quantecon.finance.CommodityFutures(LogFutures, [2 4 6 8 10]/12);
+
+% Mode B: with observed interest rates (better r identification)
+result = quantecon.finance.CommodityFutures(LogFutures, Maturities, ...
+    'Rates', r_observed);
+
+% Full options
+result = quantecon.finance.CommodityFutures(LogFutures, Maturities, ...
+    'Rates', r_obs, 'TimeStep', 1/252, 'NRunge', 2000, 'NStarts', 200);
+
+% Access results
+fprintf('LogLik = %.2f, AIC = %.2f, BIC = %.2f\n', ...
+    result.LogLik, result.AIC, result.BIC);
+disp(result.ParamTable);        % named parameter estimates
+plot(result.States(:,1));       % filtered log spot price
+title('Filtered Log Spot Price');
 ```
 
 ---
@@ -738,6 +944,16 @@ mdl = quantecon.causal.SemFit(S, Model_Spec);
 res = mdl.estimate('Bootstrap', true, 'nBoot', 500);
 ```
 
+#### LpDid
+
+Local Projection Difference-in-Differences (Dube, Girardi, Jorda & Taylor 2025). Clean control condition, variance-weighted (VW) and regression-weighted (RW) estimators, clustered standard errors.
+
+```matlab
+res = quantecon.causal.LpDid(y, treat, time, id, 8);
+res = quantecon.causal.LpDid(y, treat, time, id, 8, 'Weighting', 'rw', 'Alpha', 0.10);
+% res.IRF, res.SE, res.CI_lo, res.CI_hi (horizon x 1 each)
+```
+
 #### Psm
 
 Propensity Score Matching for causal inference with multiple PS models, matching algorithms, Abadie-Imbens bias correction and standard errors, and PSM-DID integration.
@@ -789,6 +1005,27 @@ Scaled PCA (Huang et al. 2022).
 ```matlab
 mdl = quantecon.factor.Spca(K);
 res = mdl.estimate(Target, Predictors);
+```
+
+#### Dfm
+
+Dynamic Factor Model via EM-Kalman Filter/Smoother (Miranda-Agrippino 2013). PCA initialization, VAR(p) factor dynamics.
+
+```matlab
+res = quantecon.factor.Dfm(X, 3);
+res = quantecon.factor.Dfm(X, 3, 'Lags', 2, 'MaxIter', 200, 'Tol', 1e-6);
+% res.F (T x r factors), res.C (loadings), res.A (transition), res.LogLik
+```
+
+#### DfmBlock
+
+Block-Restricted Dynamic Factor Model (Banbura & Modugno 2010). Supports block structure constraints, idiosyncratic AR dynamics, and missing data (NaN).
+
+```matlab
+% blockid: N x 1 integer vector mapping each variable to its block
+res = quantecon.factor.DfmBlock(X, [1;1;2;2;3;3], 'RPerBlock', [1 1 1]);
+res = quantecon.factor.DfmBlock(X, blockid, 'RPerBlock', r_vec, 'IdioLags', 1, 'MaxIter', 200);
+% res.F (factors), res.C (loadings), res.A (transition), res.R (idio var), res.LogLik
 ```
 
 ---
@@ -896,11 +1133,53 @@ mdl = mdl.estimate(MV);
 
 ---
 
-### 17. `+vis` — Visualization
+### 17. `+optimization` — Optimization & Numerical Methods
+
+#### Simplex
+
+Constrained least-squares simplex solver.
+
+```matlab
+w = quantecon.optimization.Simplex.solve(X, target, zeta);
+```
+
+#### CsminWel
+
+Chris Sims' quasi-Newton minimizer with BFGS Hessian update. Robust to cliff edges and bad gradients.
+
+```matlab
+[fhat, xhat, ghat, Hhat] = quantecon.optimization.CsminWel(@obj, x0, eye(n), [], 1e-8, 200);
+```
+
+#### NumGrad
+
+Forward-difference numerical gradient.
+
+```matlab
+[g, badg] = quantecon.optimization.NumGrad(@fcn, x0);
+```
+
+---
+
+### 18. `+utils` — Utilities
+
+#### VarUtils
+
+Shared utilities for VAR and Connectedness models: design matrix setup, Gaussian kernel weights, Generalized IRF.
+
+```matlab
+[X, Y] = quantecon.utils.VarUtils.var_setup(Data, p);
+w = quantecon.utils.VarUtils.norm_kernel(T, H);
+ir = quantecon.utils.VarUtils.compute_girf(A_comp, Sigma, N, L, H);
+```
+
+---
+
+### 19. `+vis` — Visualization
 
 #### Gramm
 
-Grammar of Graphics for MATLAB.
+Grammar of Graphics for MATLAB. From [`piermorel/gramm`](https://github.com/piermorel/gramm).
 
 ```matlab
 g = quantecon.vis.Gramm('x', x, 'y', y, 'color', categories);
@@ -911,7 +1190,7 @@ g.draw();
 
 #### notBoxPlot
 
-Alternative to box plots showing raw data with SEM/SD patches.
+Alternative to box plots showing raw data with SEM/SD patches. From raacampbell.
 
 ```matlab
 quantecon.vis.notBoxPlot(y, x);
@@ -923,6 +1202,85 @@ High-quality figure export (PNG, PDF, EPS) with auto-cropping.
 
 ```matlab
 quantecon.vis.exportFig(gcf, 'my_figure.pdf');
+```
+
+---
+
+### 20. `+dsge` — DSGE Model Toolkit
+
+#### Gensys
+
+Sims (2002) QZ-based solver for linear rational expectations models.
+
+```matlab
+[G1, C, impact, ~, ~, ~, ~, eu] = quantecon.dsge.Gensys(g0, g1, c, psi, pi);
+```
+
+#### PertSolve
+
+First-order perturbation solution via generalized Schur (Klein 2000).
+
+```matlab
+[SOL, stab] = quantecon.dsge.PertSolve(A, B, nx);
+% SOL.F = decision rule, SOL.P = law of motion
+```
+
+#### ProjSolve
+
+Projection method solver using Chebyshev collocation (Judd 1998).
+
+```matlab
+[POL, GRID, exitflag] = quantecon.dsge.ProjSolve(@residual, lb, ub, Y0, 'Order', 5);
+```
+
+#### Tauchen
+
+Tauchen (1986) AR(1) discretization into finite Markov chain.
+
+```matlab
+[grid, P] = quantecon.dsge.Tauchen(rho, sigma, 'N', 7, 'M', 3);
+```
+
+#### Rouwenhorst
+
+Rouwenhorst (1995) AR(1) discretization (better for high persistence).
+
+```matlab
+[grid, P] = quantecon.dsge.Rouwenhorst(rho, sigma, 'N', 5);
+```
+
+#### KalmanFilter
+
+Linear Kalman filter with NaN (missing data) support.
+
+```matlab
+res = quantecon.dsge.KalmanFilter(data, F, H, 'Q', Q, 'R', R);
+% res.LogLik, res.Filt, res.Pred
+```
+
+#### KalmanSmoother
+
+Koopman (1993) disturbance smoother for state-space models.
+
+```matlab
+res = quantecon.dsge.KalmanSmoother(data, F, H, R_shock, Q_noise);
+% res.SmoothedStates, res.SmoothedShocks
+```
+
+#### PriorDens
+
+Log prior density for Bayesian DSGE estimation (Beta/Gamma/Normal/InvGamma/Uniform).
+
+```matlab
+lp = quantecon.dsge.PriorDens(para, pmean, pstdd, pshape);
+```
+
+#### DiscLyap
+
+Discrete Lyapunov equation solver via doubling algorithm: X = A*X*A' + C.
+
+```matlab
+X = quantecon.dsge.DiscLyap(A, C);
 ```
 
 ---
@@ -945,17 +1303,16 @@ tests.run_benchmarks
 
 Validated against Stata (`reghdfe`, `xtreg`, `teffects psmatch`) and Python (`linearmodels`, `statsmodels`, `arch`, `sklearn`).
 
-| Test | MATLAB vs Stata | MATLAB vs Python |
-|------|-----------------|------------------|
-| OLS coefficients | < 1e-5 | < 1e-5 |
-| Panel FE | < 1e-6 | < 1e-5 |
-| GARCH(1,1) | — | < 0.02 |
-| ADF statistic | matched | matched |
-| PSM ATT (NN1) | < 0.04 | < 1e-4 |
-| PSM ATT (NN5+BC) | < 0.02 | — |
-| PSM-DID ATT | < 0.04 | < 0.05 |
+| Test             | MATLAB vs Stata | MATLAB vs Python |
+| ---------------- | --------------- | ---------------- |
+| OLS coefficients | < 1e-5          | < 1e-5           |
+| Panel FE         | < 1e-6          | < 1e-5           |
+| GARCH(1,1)       | —              | < 0.02           |
+| ADF statistic    | matched         | matched          |
+| PSM ATT (NN1)    | < 0.04          | < 1e-4           |
+| PSM ATT (NN5+BC) | < 0.02          | —               |
+| PSM-DID ATT      | < 0.04          | < 0.05           |
 
 ```matlab
 run('verification/orchestrate_verification.m')
 ```
-
